@@ -108,3 +108,5 @@ build/obj
 # include vscode ui toolkit minified release file
 !release/toolkit.min.js
 release/fsharp.js.LICENSE.txt
+
+__azurite_db_blob*.json
