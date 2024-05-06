@@ -10,7 +10,8 @@
                 "Ionide.Ionide-fsharp",
                 "Ionide.Ionide-Paket",
                 "fernandoescolar.vscode-solution-explorer",
-                "EditorConfig.EditorConfig"
+                "EditorConfig.EditorConfig",
+                "shardulm94.trailing-spaces"
             ]
         }
     },
@@ -23,10 +24,10 @@
     // Use 'forwardPorts' to make a list of ports inside the container available locally.
     // "forwardPorts": [5000, 5001],
     // "portsAttributes": {
-    //		"5001": {
-    //			"protocol": "https"
-    //		}
-    // }
+    //         "5001": {
+    //             "protocol": "https"
+    //         }
+    // },
 
     // Use 'postCreateCommand' to run commands after the container is created.
     "postCreateCommand": "dotnet tool restore && dotnet paket restore && dotnet restore SafeStackAuth.sln",
