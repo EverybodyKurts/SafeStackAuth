@@ -8,12 +8,23 @@ open Giraffe
 
 open Shared
 
+open Microsoft.AspNetCore.Authentication
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.AspNetCore.Authentication.JwtBearer
 open Microsoft.IdentityModel.Tokens
 open System.Security.Claims
+
+let authenticate : HttpFunc -> HttpContext -> HttpFuncResult =
+    requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme >=> text "please authenticate")
+
+
+let webApp : HttpFunc -> HttpContext -> HttpFuncResult =
+    let authenticated =
+        warbler (fun _ -> requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme))
+
+    choose [ Api.create Api.guestApi; authenticated >=> Api.create Api.authenticatedApi ]
 
 type Saturn.Application.ApplicationBuilder with
 
@@ -25,7 +36,6 @@ type Saturn.Application.ApplicationBuilder with
             app.UseAuthentication()
 
         let service (s : IServiceCollection) =
-            // s.AddAuth
             s.AddAuthentication(fun options ->
                 options.DefaultAuthenticateScheme <- JwtBearerDefaults.AuthenticationScheme
                 options.DefaultChallengeScheme <- JwtBearerDefaults.AuthenticationScheme
@@ -54,44 +64,8 @@ type Saturn.Application.ApplicationBuilder with
             CookiesAlreadyAdded = true
         }
 
-module Storage =
-    let todos = ResizeArray()
-
-    let addTodo todo =
-        if Todo.isValid todo.Description then
-            todos.Add todo
-            Ok()
-        else
-            Error "Invalid todo"
-
-    do
-        addTodo (Todo.create "Create new SAFE project") |> ignore
-        addTodo (Todo.create "Write your app") |> ignore
-        addTodo (Todo.create "Ship it!!!") |> ignore
-
-let todosApi = {
-    getTodos = fun () -> async { return Storage.todos |> List.ofSeq }
-    addTodo =
-        fun todo -> async {
-            return
-                match Storage.addTodo todo with
-                | Ok() -> todo
-                | Error e -> failwith e
-        }
-}
-
-
-let authenticate : HttpFunc -> HttpContext -> HttpFuncResult =
-    requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme >=> text "please authenticate")
-
-let webApp =
-    Remoting.createApi ()
-    |> Remoting.withRouteBuilder Route.builder
-    |> Remoting.fromValue todosApi
-    |> Remoting.buildHttpHandler
-
 let app = application {
-    use_token_authentication
+    use_jwt_authentication Auth.secret Auth.issuer
     use_router webApp
     memory_cache
     use_static "public"
