@@ -20,7 +20,7 @@ Target.create "Clean" (fun _ ->
     run dotnet [ "fable"; "clean"; "--yes" ] clientPath // Delete *.fs.js files created by Fable
 )
 
-Target.create "InstallClient" (fun _ -> run npm [ "install" ] ".")
+Target.create "RestoreClientDependencies" (fun _ -> run npm [ "ci" ] ".")
 
 Target.create "Bundle" (fun _ ->
     [
@@ -44,20 +44,27 @@ Target.create "Azure" (fun _ ->
 
     deployment |> Deploy.execute "SAFE-App" Deploy.NoParameters |> ignore)
 
-Target.create "Run" (fun _ ->
-    run dotnet [ "build" ] sharedPath
+Target.create "Build" (fun _ ->
+    run dotnet [ "build"; "Application.sln" ] "."
 
+    )
+
+Target.create "Run" (fun _ ->
     [
-        "server", dotnet [ "watch"; "run" ] serverPath
+        "server", dotnet [ "watch"; "run"; "--no-restore" ] serverPath
         "client", dotnet [ "fable"; "watch"; "-o"; "output"; "-s"; "--run"; "npx"; "vite" ] clientPath
     ]
     |> runParallel)
 
-Target.create "RunTests" (fun _ ->
-    run dotnet [ "build" ] sharedTestsPath
+Target.create "RunTestsHeadless" (fun _ ->
+    run dotnet [ "run" ] serverTestsPath
+    run dotnet [ "fable"; "-o"; "output" ] clientTestsPath
+    run npx [ "mocha"; "output" ] clientTestsPath
+)
 
+Target.create "WatchRunTests" (fun _ ->
     [
-        "server", dotnet [ "watch"; "run" ] serverTestsPath
+        "server", dotnet [ "watch"; "run"; "--no-restore" ] serverTestsPath
         "client", dotnet [ "fable"; "watch"; "-o"; "output"; "-s"; "--run"; "npx"; "vite" ] clientTestsPath
     ]
     |> runParallel)
@@ -67,11 +74,11 @@ Target.create "Format" (fun _ -> run dotnet [ "fantomas"; "." ] ".")
 open Fake.Core.TargetOperators
 
 let dependencies = [
-    "Clean" ==> "InstallClient" ==> "Bundle" ==> "Azure"
+    "Clean" ==> "RestoreClientDependencies" ==> "Bundle" ==> "Azure"
+    "Clean" ==> "RestoreClientDependencies" ==> "Build" ==> "Run"
 
-    "Clean" ==> "InstallClient" ==> "Run"
-
-    "InstallClient" ==> "RunTests"
+    "RestoreClientDependencies" ==> "Build" ==> "RunTestsHeadless"
+    "RestoreClientDependencies" ==> "Build" ==> "WatchRunTests"
 ]
 
 [<EntryPoint>]
